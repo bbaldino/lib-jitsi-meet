@@ -222,11 +222,60 @@ export default class RtxModifier {
     }
 
     /**
+     * Strip all rtx ssrcs from the given sdp (except for any
+     *  that correspond to a primary ssrc in the given list)
+     * @param {string} sdpStr sdp in raw string format
+     * @param {list<number>} primarySsrcsToKeepRtx a list of ssrcs
+     *  whose rtx streams should be preserved
+     * @returns {string} modified sdp string
+     */
+    stripRtx (sdpStr, primarySsrcsToKeepRtx) {
+        const parsedSdp = transform.parse(sdpStr);
+        const videoMLine = 
+            parsedSdp.media.find(mLine => mLine.type === "video");
+        if (videoMLine.direction === "inactive" ||
+                videoMLine.direction === "recvonly") {
+            logger.info("RtxModifier doing nothing, video " +
+                "m line is inactive or recvonly");
+            return sdpStr;
+        }
+        if (!videoMLine.ssrcGroups) {
+            // Nothing to do
+            return sdpStr;
+        }
+        const fidGroups = 
+            videoMLine.ssrcGroups.filter(g => g.semantics === "FID");
+        const ssrcsToRemove = [];
+        fidGroups.forEach(group => {
+            const groupSsrcs = SDPUtil.parseGroupSsrcs(group);
+            const primarySsrc = groupSsrcs[0];
+            const rtxSsrc = groupSsrcs[1];
+            if (primarySsrcsToKeepRtx.indexOf(primarySsrc) === -1) {
+                ssrcsToRemove.push(rtxSsrc);
+            }
+        });
+        videoMLine.ssrcs = videoMLine.ssrcs
+            .filter(ssrc => ssrcsToRemove.indexOf(ssrc.id) === -1);
+        videoMLine.ssrcGroups = videoMLine.ssrcGroups
+            .filter(group => {
+                let ssrcs = group.ssrcs.split(" ").map(s => parseInt(s));
+                for (let i = 0; i < ssrcs.length; ++i) {
+                    if (ssrcsToRemove.indexOf(ssrcs[i]) !== -1) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+        return transform.write(parsedSdp);
+    }
+
+    /**
      * Remove all reference to any rtx ssrcs that 
      *  don't correspond to the primary stream.
      * Must be called *after* any simulcast streams
      *  have been imploded
      * @param {string} sdpStr sdp in raw string format
+     * @returns {string} modified sdp string
      */
     implodeRemoteRtxSsrcs (sdpStr) {
         let parsedSdp = transform.parse(sdpStr);
@@ -242,7 +291,10 @@ export default class RtxModifier {
             // Nothing to do
             return sdpStr;
         }
+        const primaryvideoSsrc = SDPUtil.parsePrimaryVideoSsrc(videoMLine);
+        return this.stripRtx(sdpStr, [primaryvideoSsrc]);
 
+        /*
         // Returns true if the given ssrc is present
         //  in the mLine's ssrc list
         let ssrcExists = (ssrcToFind) => {
@@ -272,5 +324,6 @@ export default class RtxModifier {
                 return true;
             });
         return transform.write(parsedSdp);
+        */
     }
 }
