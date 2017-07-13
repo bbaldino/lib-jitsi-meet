@@ -199,6 +199,15 @@ const RTCBrowserType = {
         return RTCBrowserType.isEdge() ? browserVersion : null;
     },
 
+    /**
+     * Returns the safari version
+     *
+     * @returns {number|null}
+     */
+    getSafariVersion() {
+        return RTCBrowserType.isSafari() ? browserVersion : null;
+    },
+
     usesPlanB() {
         return !RTCBrowserType.usesUnifiedPlan();
     },
@@ -328,10 +337,12 @@ function detectFirefox() {
 function detectSafari() {
     if (/^((?!chrome).)*safari/i.test(navigator.userAgent)) {
         currentBrowser = RTCBrowserType.RTC_BROWSER_SAFARI;
-        logger.info('This appears to be Safari');
+        const version = parseInt(
+            navigator.userAgent.match(/version\/(\d+(\.\d+)?)/i)[1], 10);
 
-        // FIXME detect Safari version when needed
-        return 1;
+        logger.info(`This appears to be Safari ver: ${version}`);
+
+        return version;
     }
 
     return null;
