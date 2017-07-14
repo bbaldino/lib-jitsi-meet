@@ -149,7 +149,8 @@ const RTCBrowserType = {
         // http://support.temasys.com.sg/support/solutions/articles/
         // 5000654345-can-the-temasys-webrtc-plugin-be-used-with-microsoft-edge-
         return (
-            RTCBrowserType.isSafari()
+            (RTCBrowserType.isSafari()
+                && RTCBrowserType.getSafariVersion() < 11)
             || (RTCBrowserType.isIExplorer()
                 && RTCBrowserType.getIExplorerVersion() < 12)
         );

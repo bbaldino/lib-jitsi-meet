@@ -917,6 +917,74 @@ class RTCUtils extends Listenable {
                 this.getTrackID = function(track) {
                     return track.jitsiRemoteId || track.id;
                 };
+            } else if (RTCBrowserType.isSafari()
+                && RTCBrowserType.getSafariVersion() >= 11) {
+                this.RTCPeerConnectionType = RTCPeerConnection;
+
+                // NOTE(brian): we intionally use 'function' here (instead of
+                // an arrow function) because we want 'this' to be rebound
+                // to the context of the caller, not the current 'this' context.
+                this.RTCPeerConnectionType.prototype.addStream
+                    = function(stream) {
+                        stream.getTracks()
+                            .forEach(track => this.addTrack(track));
+                    };
+
+                // TODO
+                this.RTCPeerConnectionType.prototype.getStats = () => {
+                    console.log('Safari getStats TODO');
+                };
+                this.RTCPeerConnectionType.originalSetRemoteDescription
+                    = this.RTCPeerConnectionType.prototype.setRemoteDescription;
+                this.RTCPeerConnectionType.prototype.setRemoteDescription
+                    = function(description, successCallback, errorCallback) {
+                        this.originalSetRemoteDescription(description)
+                            .then(successCallback)
+                            .catch(error => errorCallback(error));
+                    };
+                this.RTCPeerConnectionType.prototype.originalSetLocalDescription
+                    = this.RTCPeerConnectionType.prototype.setLocalDescription;
+                this.RTCPeerConnectionType.prototype.setLocalDescription
+                    = function(description, successCallback, errorCallback) {
+                        this.originalSetLocalDescription(description)
+                            .then(successCallback)
+                            .catch(error => errorCallback(error));
+                    };
+                this.RTCPeerConnectionType.prototype.originalCreateOffer
+                    = this.RTCPeerConnectionType.prototype.createOffer;
+                this.RTCPeerConnectionType.prototype.createOffer
+                    = function(successCallback, errorCallback, constraints) {
+                        this.originalCreateOffer(constraints)
+                            .then(successCallback)
+                            .catch(errorCallback);
+                    };
+                this.RTCPeerConnectionType.prototype.originalCreateAnswer
+                    = this.RTCPeerConnectionType.prototype.createAnswer;
+                this.RTCPeerConnectionType.prototype.createAnswer
+                    = function(successCallback, errorCallback, constraints) {
+                        this.originalCreateAnswer(constraints)
+                            .then(successCallback)
+                            .catch(errorCallback);
+                    };
+                this.getUserMedia
+                    = (constraints, successCallback, errorCallback) => {
+                        navigator.mediaDevices.getUserMedia(constraints)
+                            .then(stream => successCallback(stream))
+                            .catch(error => errorCallback(error));
+                    };
+                this.enumerateDevices
+                    = function(callback) {
+                        navigator.mediaDevices.enumerateDevices
+                            .then(deviceList => {
+                                console.log('Got devices: ', deviceList);
+                                callback(deviceList);
+                            });
+                    };
+                this.attachMediaStream
+                    = function(container, stream) {
+                        container.srcObject = stream;
+                    };
+                this.getStreamID = stream => stream.id;
             } else if (RTCBrowserType.isTemasysPluginUsed()) {
                 // Detect IE/Safari
                 const webRTCReadyCb = () => {
@@ -1314,7 +1382,8 @@ class RTCUtils extends Listenable {
                 || RTCBrowserType.isTemasysPluginUsed()
                 || RTCBrowserType.isNWJS()
                 || RTCBrowserType.isElectron()
-                || RTCBrowserType.isEdge();
+                || RTCBrowserType.isEdge()
+                || RTCBrowserType.isSafari();
     }
 
     /**
