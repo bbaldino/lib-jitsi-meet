@@ -163,23 +163,26 @@ export default class LocalSdpMunger {
      * Maybe modifies local description to fake local video tracks SDP when
      * those are muted.
      *
-     * @param {object} desc the WebRTC SDP object instance for the local
-     * description.
+     * @param {RTCSessionDescription} desc the WebRTC SDP object instance
+     * for the local description.
+     * @return {RTCSessionDescription} a new RTCSessionDescription object
+     * with a (maybe) modified sdp
      */
     maybeMungeLocalSdp(desc) {
-        // Nothing to be done in early stage when localDescription
-        // is not available yet
-        if (!desc || !desc.sdp) {
-            return;
+        if (!desc || !(desc instanceof RTCSessionDescription)) {
+            throw new Error('Incorrect type, expected RTCSessionDescription');
         }
-
         const transformer = new SdpTransformWrap(desc.sdp);
 
         if (this._addMutedLocalVideoTracksToSDP(transformer)) {
-            // Write
-            desc.sdp = transformer.toRawSDP();
+            const transformedSdp = transformer.toRawSDP();
 
-            // logger.info("Post TRANSFORM: ", desc.sdp);
+            return new RTCSessionDescription({
+                type: desc.type,
+                sdp: transformedSdp
+            });
         }
+
+        return desc;
     }
 }

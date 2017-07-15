@@ -934,7 +934,8 @@ class RTCUtils extends Listenable {
                 this.RTCPeerConnectionType.prototype.getStats = () => {
                     console.log('Safari getStats TODO');
                 };
-                this.RTCPeerConnectionType.originalSetRemoteDescription
+                this.RTCPeerConnectionType.prototype
+                    .originalSetRemoteDescription
                     = this.RTCPeerConnectionType.prototype.setRemoteDescription;
                 this.RTCPeerConnectionType.prototype.setRemoteDescription
                     = function(description, successCallback, errorCallback) {

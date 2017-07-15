@@ -1048,29 +1048,41 @@ const normalizePlanB = function(desc) {
 
 /**
  * Makes sure that both audio and video directions are configured as 'sendrecv'.
- * @param {Object} localDescription the SDP object as defined by WebRTC.
+ * @param {RTCSessionDescription} localDescription the SDP object as
+ * defined by WebRTC.
+ * @return {RTCSessionDescription} the (potentially)
+ * modified RTCSessionDescription
  */
 const enforceSendRecv = function(localDescription) {
-    if (localDescription && localDescription.sdp) {
-        const transformer = new SdpTransformWrap(localDescription.sdp);
-        const audioMedia = transformer.selectMedia('audio');
-        let changed = false;
-
-        if (audioMedia && audioMedia.direction !== 'sendrecv') {
-            audioMedia.direction = 'sendrecv';
-            changed = true;
-        }
-        const videoMedia = transformer.selectMedia('video');
-
-        if (videoMedia && videoMedia.direction !== 'sendrecv') {
-            videoMedia.direction = 'sendrecv';
-            changed = true;
-        }
-
-        if (changed) {
-            localDescription.sdp = transformer.toRawSDP();
-        }
+    if (!localDescription
+            || !(localDescription instanceof RTCSessionDescription)) {
+        throw new Error('Incorrect type, expected RTCSessionDescription');
     }
+    const transformer = new SdpTransformWrap(localDescription.sdp);
+    const audioMedia = transformer.selectMedia('audio');
+    let changed = false;
+
+    if (audioMedia && audioMedia.direction !== 'sendrecv') {
+        audioMedia.direction = 'sendrecv';
+        changed = true;
+    }
+    const videoMedia = transformer.selectMedia('video');
+
+    if (videoMedia && videoMedia.direction !== 'sendrecv') {
+        videoMedia.direction = 'sendrecv';
+        changed = true;
+    }
+
+    if (changed) {
+        const transformedSdp = transformer.toRawSDP();
+
+        return new RTCSessionDescription({
+            type: localDescription.type,
+            sdp: transformedSdp
+        });
+    }
+
+    return localDescription;
 };
 
 /**
@@ -1138,6 +1150,10 @@ const getters = {
     localDescription() {
         let desc = this.peerconnection.localDescription;
 
+        if (!desc) {
+            return {};
+        }
+
         this.trace('getLocalDescription::preTransform', dumpSDP(desc));
 
         // if we're running on FF, transform to Plan B first.
@@ -1151,7 +1167,7 @@ const getters = {
         }
 
         if (RTCBrowserType.doesVideoMuteByStreamRemove()) {
-            this.localSdpMunger.maybeMungeLocalSdp(desc);
+            desc = this.localSdpMunger.maybeMungeLocalSdp(desc);
             logger.debug(
                 'getLocalDescription::postTransform (munge local SDP)', desc);
         }
@@ -1164,9 +1180,9 @@ const getters = {
         // Note that the description we set in chrome does have the accurate
         // direction (e.g. 'recvonly'), since that is technically what is
         // happening (check setLocalDescription impl).
-        enforceSendRecv(desc);
+        desc = enforceSendRecv(desc);
 
-        return desc || {};
+        return desc;
     },
     remoteDescription() {
         let desc = this.peerconnection.remoteDescription;

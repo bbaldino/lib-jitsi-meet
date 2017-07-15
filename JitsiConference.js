@@ -798,12 +798,17 @@ JitsiConference.prototype._setupNewTrack = function(newTrack) {
     if (newTrack.isAudioTrack() || (newTrack.isVideoTrack()
             && newTrack.videoType !== VideoType.DESKTOP)) {
         // Report active device to statistics
+        let device = null;
         const devices = RTC.getCurrentlyAvailableMediaDevices();
-        const device
-            = devices.find(
-                d =>
-                    d.kind === `${newTrack.getTrack().kind}input`
-                        && d.label === newTrack.getTrack().label);
+
+        if (!devices || !devices.length) {
+            logger.warn('_setupNewTrack: No devices found');
+        } else {
+            device = devices.find(d =>
+                d.kind === `${newTrack.getTrack().kind}input`
+                && d.label === newTrack.getTrack().label
+            );
+        }
 
         if (device) {
             Statistics.sendActiveDeviceListEvent(
