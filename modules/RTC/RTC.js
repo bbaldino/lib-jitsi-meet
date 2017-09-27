@@ -49,6 +49,83 @@ function createLocalTracks(tracksInfo, options) {
 }
 
 /**
+ * Creates a {@code JitsiLocalTrack} instance.
+ *
+ * @param {Object} trackInfo
+ * @param {MediaStream} trackInfo.stream - The media stream instance that holds
+ * a track with audio or video.
+ * @param {MediaTrack} trackInfo.track - The actual MediaTrack instance that has
+ * audio or video that is in the passed in stream.
+ * @param {string} trackInfo.videoType - Whether the video track is "camera" or
+ * "desktop". Defaults to null.
+ * @param {string} trackInfo.sourceId - The id of the desktopsharing source.
+ * @param {string} trackInfo.sourceType - From which screensharing type the
+ * desktopsharing source is coming from.
+ * @param {Object} options - Additional information about the track. This
+ * parameter is left in from the previous createLocalTracks function
+ * specifically for electron, which may run an older version of chrome that does
+ * not have support for MediaStreamTrack#getSettings.
+ * @param {string} options.cameraDeviceId - The device id of the camera used for
+ * video capture. Used as a fallback if the information is not obtainable from
+ * the track.
+ * @param {string} options.facingMode - For mobile, which camera is being used.
+ * Used as a fallback if the information is not obtainable from the track.
+ * @param {string} options.micDeviceId - The device id of the microphone used
+ * for audio capture. Used as a fallback if the information is not obtainable
+ * from the track.
+ */
+function _newCreateLocalTrack({
+    sourceId,
+    sourceType,
+    stream,
+    track,
+    videoType = null
+}, options) {
+    let settingsFromTrack;
+
+    try {
+        settingsFromTrack = track.getSettings();
+    } catch (e) {
+        settingsFromTrack = null;
+    }
+
+    let deviceId = null;
+
+    if (settingsFromTrack) {
+        deviceId = settingsFromTrack.deviceId;
+    } else if (track.kind === MediaType.AUDIO) {
+        deviceId = options.micDeviceId;
+    } else if (videoType === VideoType.CAMERA) {
+        deviceId = options.cameraDeviceId;
+    }
+
+    let facingMode;
+
+    if (settingsFromTrack) {
+        facingMode = settingsFromTrack.facingMode;
+    } else {
+        facingMode = options.facingMode;
+    }
+
+    // FIXME Move rtcTrackIdCounter to a static method in JitsiLocalTrack
+    // so RTC does not need to handle ID management. This move would be safer to
+    // do once the old createLocalTracks is removed.
+    rtcTrackIdCounter += 1;
+
+    return new JitsiLocalTrack({
+        deviceId,
+        facingMode,
+        mediaType: track.kind,
+        rtcId: rtcTrackIdCounter,
+        sourceId,
+        sourceType,
+        stream,
+        track,
+        videoType
+    });
+}
+
+/**
  *
  */
 export default class RTC extends Listenable {
@@ -140,6 +217,150 @@ export default class RTC extends Listenable {
                     }
                 });
         }
+    }
+
+    /**
+     * Gets streams from specified device types and creates {@code
+     * JitsiLocalTrack} instances for each. This call intentionally ignores
+     * errors for upstream to catch and handle instead.
+     *
+     * @param {Object} options - A hash describing what devices to get and
+     * relevant constraints.
+     * @param {string[]} options.devices - The types of media to capture. Valid
+     * values are "desktop", "audio", and "video".
+     * @returns {Promise} The promise, when successful, will return an array of
+     * JitsiLocalTrack instances. If an error occurs, it will be deferred to the
+     * caller for handling.
+     */
+    static _newObtainAudioAndVideoPermissions(options = {}) {
+        logger.info('Using the new gUM flow');
+
+        const localJitsiTracks = [];
+
+        // Declare private functions to be used in the promise chain below.
+        // These functions are declared in the scope of this function because
+        // they are not being used anywhere else, so only this function needs to
+        // know about them.
+
+        /**
+         * Executes a request for desktop media if specified in options.
+         *
+         * @returns {Promise}
+         */
+        function maybeRequestDesktopDevice() {
+            const devices = options.devices || [ 'audio', 'video' ];
+            const requestedDesktopDevices = devices.filter(
+                device => device === 'desktop');
+
+            return requestedDesktopDevices.length
+                ? RTCUtils._newGetDesktopMedia(
+                    options.desktopSharingExtensionExternalInstallation,
+                    options.desktopSharingSources)
+                : Promise.resolve();
+        }
+
+        /**
+         * Instantiates a {@code JitsiLocalTrack} with the passed in desktop
+         * stream and pushes the model instance to the internal array
+         * localJitsiTracks to be returned later.
+         *
+         * @param {MediaStreamTrack} desktopStream - A track for a desktop
+         * capture.
+         * @returns {void}
+         */
+        function maybeCreateDesktopModel(desktopStream) {
+            if (!desktopStream) {
+                return;
+            }
+
+            const { stream, sourceId, sourceType } = desktopStream;
+
+            localJitsiTracks.push(_newCreateLocalTrack({
+                stream,
+                sourceId,
+                sourceType,
+                track: stream.getVideoTracks()[0],
+                videoType: VideoType.DESKTOP
+            }, options));
+        }
+
+        /**
+         * Executes a request for audio and/or video, as specified in options.
+         * By default both audio and video will be captured if options.devices
+         * is not defined.
+         *
+         * @returns {Promise}
+         */
+        function maybeRequestCaptureDevices() {
+            const devices = options.devices || [ 'audio', 'video' ];
+            const requestedCaptureDevices = devices.filter(
+                device => device !== 'desktop');
+
+            if (!requestedCaptureDevices.length) {
+                return Promise.resolve();
+            }
+
+            const constraints = RTCUtils._newGetConstraints(
+                requestedCaptureDevices, options);
+
+            logger.info('Got media constraints: ', constraints);
+
+            return RTCUtils._newGetUserMediaWithConstraints(
+                requestedCaptureDevices, constraints);
+        }
+
+        /**
+         * Instantiates a {@code JitsiLocalTrack} with the passed in desktop
+         * stream and pushes the model instance to the internal array
+         * localJitsiTracks to be returned later.
+         *
+         * @param {MediaStreamTrack} avStream - A track for with audio and/or
+         * video track.
+         * @returns {void}
+         */
+        function maybeCreateAVModels(avStream) {
+            if (!avStream) {
+                return;
+            }
+
+            if (avStream.getAudioTracks().length) {
+                const audioStream = new MediaStream();
+
+                avStream.getAudioTracks().forEach(
+                    t => audioStream.addTrack(t));
+
+                localJitsiTracks.push(_newCreateLocalTrack({
+                    stream: audioStream,
+                    track: audioStream.getAudioTracks()[0]
+                }, options));
+            }
+
+            if (avStream.getVideoTracks().length) {
+                const videoStream = new MediaStream();
+
+                avStream.getVideoTracks().forEach(
+                    t => videoStream.addTrack(t));
+
+                localJitsiTracks.push(_newCreateLocalTrack({
+                    stream: videoStream,
+                    track: videoStream.getVideoTracks()[0],
+                    videoType: VideoType.CAMERA
+                }, options));
+            }
+        }
+
+        return maybeRequestDesktopDevice()
+            .then(maybeCreateDesktopModel)
+            .then(maybeRequestCaptureDevices)
+            .then(maybeCreateAVModels)
+            .then(() => {
+                if (localJitsiTracks.some(t => !t._isReceivingData())) {
+                    return Promise.reject(new JitsiTrackError(
+                        JitsiTrackErrors.NO_DATA_FROM_SOURCE));
+                }
+
+                return localJitsiTracks;
+            });
     }
 
     /**

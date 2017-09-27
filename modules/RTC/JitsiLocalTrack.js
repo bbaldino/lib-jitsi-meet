@@ -74,6 +74,17 @@ export default class JitsiLocalTrack extends JitsiTrack {
         // track resolution.
         this.resolution = RTCBrowserType.isFirefox() ? null : resolution;
 
+        if (RTCBrowserType.usesNewGumFlow()) {
+            // Not all environments support getSettings, however it's important
+            // to get the resolution from the track itself because it cannot be
+            // certain which resolution webrtc has fallen back to using.
+            try {
+                this.resolution = track.getSettings().height || null;
+            } catch (e) {
+                this.resolution = null;
+            }
+        }
+
         this.deviceId = deviceId;
 
         /**

@@ -1,4 +1,4 @@
-/* global $, APP */
+/* global $ */
 
 import SDPUtil from './SDPUtil';
 
@@ -268,13 +268,13 @@ SDP.prototype.toJingle = function(elem, thecreator) {
             if (ssrc) {
                 const ssrcMaps = SDPUtil.parseSSRC(this.media[i]);
 
-                Object.keys(ssrcMaps).forEach(ssrc => {
+                Object.keys(ssrcMaps).forEach(availableSsrc => {
                     elem.c('source', {
-                        ssrc,
+                        ssrc: availableSsrc,
                         xmlns: 'urn:xmpp:jingle:apps:rtp:ssma:0'
                     });
 
-                    ssrcMaps[ssrc].forEach(ssrcSdpLine => {
+                    ssrcMaps[availableSsrc].forEach(ssrcSdpLine => {
                         // get everything after first space
                         const idx = ssrcSdpLine.indexOf(' ');
                         const kv = ssrcSdpLine.substr(idx + 1);

@@ -1,3 +1,7 @@
+/* global $iq */
+
+// import strophe so $iq is available for parsing xml
+// eslint-disable-next-line no-unused-vars
 import strophe from 'strophe';
 
 import SDP from './SDP';
@@ -77,17 +81,17 @@ describe('SDP', () => {
 
             sdp.toJingle(accept, false);
 
-            const videoDescriptions
-                = Array.from(
-                    accept.nodeTree.getElementsByTagName('description'))
-                .filter((description) => {
-                    return description.getAttribute('media') === 'video';
-                });
+            const { nodeTree } = accept;
+            const descriptions
+                = Array.from(nodeTree.getElementsByTagName('description'));
+            const videoDescriptions = descriptions.filter(description =>
+                description.getAttribute('media') === 'video');
             const count = videoDescriptions.reduce((iterator, description) => {
-                return iterator + Array.from(description.childNodes)
-                    .filter(childNode => {
-                        return childNode.nodeName === 'source'
-                    }).length;
+                const childNodes = Array.from(description.childNodes);
+                const childNodesSources = childNodes.filter(child =>
+                    child.nodeName === 'source');
+
+                return iterator + childNodesSources.length;
             }, 0);
 
             expect(count).toBe(2);
