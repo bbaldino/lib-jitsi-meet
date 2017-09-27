@@ -39,7 +39,8 @@ class RTCBrowserType2 {
      */
     constructor(userAgent, product) {
         this.browserInfo = this._detect(userAgent, product);
-        logger.log(`Detected browser ${this.browserInfo.name} ${this.browserInfo.version}`);
+        logger.log(`Detected browser ${this.browserInfo.name}`
+            + ` ${this.browserInfo.version}`);
     }
 
     /**
@@ -71,8 +72,10 @@ class RTCBrowserType2 {
                 // defined by RTC_BROWSER_XXX, as opposed to the bowser
                 // defines.  This is fine because bowser doesn't have
                 // definitions for these
-                browserInfo.name = info.browser;
-                browserInfo.version = info.version;
+                browserInfo = {
+                    name: info.browser,
+                    version: info.version
+                };
                 customAgentDetected = true;
                 break;
             }
@@ -178,9 +181,9 @@ class RTCBrowserType2 {
             return RTCBrowserType2.RTC_BROWSER_IEXPLORER;
         case BOWSER_MSEDGE:
             return RTCBrowserType2.RTC_BROWSER_EDGE;
-        case this.RTC_BROWSER_REACT_NATIVE:
-        case this.RTC_BROWSER_ELECTRON:
-        case this.RTC_BROWSER_NWJS:
+        case RTCBrowserType2.RTC_BROWSER_REACT_NATIVE:
+        case RTCBrowserType2.RTC_BROWSER_ELECTRON:
+        case RTCBrowserType2.RTC_BROWSER_NWJS:
             return this.browserInfo.name;
         case BOWSER_SAFARI:
             // eslint-ignore-nextline no-fallthrough
@@ -341,7 +344,6 @@ class RTCBrowserType2 {
         // Temasys do not support Microsoft Edge:
         // http://support.temasys.com.sg/support/solutions/articles/
         // 5000654345-can-the-temasys-webrtc-plugin-be-used-with-microsoft-edge-
-        // TODO(brian): make sure this version compare is correct
         return this.browserInfo.safari
             || (this.browserInfo.msie
                 && bowser.compareVersions(
