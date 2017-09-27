@@ -19,8 +19,12 @@ const ELECTRON = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5)'
     + ' Chrome/56.0.2924.87 Electron/1.6.11 Safari/537.36';
 const REACT_NATIVE_IOS = 'react-native/0.42.3 (ios 11.0)';
 const REACT_NATIVE_ANDROID = 'react-native/0.42.3 (android 25)';
+const NWJS = 'Macintosh; Intel Mac OS X 10_12_6 AppleWebKit/537.36'
+    + ' (@ad0be09aa3ca814168d079b52825f6f80e22f0e8) Chrome/537.36'
+    + ' (@ad0be09aa3ca814168d079b52825f6f80e22f0e8) nwjs/0.19.2'
+    + ' JitsiMeetNW/1.3.1';
 
-fdescribe('RTCBrowserType', function() {
+describe('RTCBrowserType', function() {
     describe('isTemasysPluginUsed', function() {
         it('should be used if the browser detected is safari', function() {
             const info = new RTCBrowserType(SAFARI_10_1_1);
@@ -58,8 +62,10 @@ fdescribe('RTCBrowserType', function() {
                 .toEqual(RTCBrowserType.RTC_BROWSER_REACT_NATIVE);
         });
         it('should detect nwjs', function() {
+            const info = new RTCBrowserType(NWJS);
 
-            // TODO: need to get an nwjs useragent string
+            expect(info.getBrowserType())
+                .toEqual(RTCBrowserType.RTC_BROWSER_NWJS);
         });
     });
 });
