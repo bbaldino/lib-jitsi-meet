@@ -1,4 +1,6 @@
 import bowser from 'bowser';
+import { getLogger } from 'jitsi-meet-logger';
+const logger = getLogger(__filename);
 
 /**
  * Bowser doesn't define constants for the browser names, it
@@ -37,6 +39,7 @@ class RTCBrowserType2 {
      */
     constructor(userAgent, product) {
         this.browserInfo = this._detect(userAgent, product);
+        logger.log(`Detected browser ${this.browserInfo.name} ${this.browserInfo.version}`);
     }
 
     /**
