@@ -109,7 +109,7 @@ class RTCBrowserType2 {
         }
 
         return {
-            browser: this.RTCBrowserType2.RTC_BROWSER_REACT_NATIVE,
+            browser: RTCBrowserType2.RTC_BROWSER_REACT_NATIVE,
             version
         };
     }
@@ -131,7 +131,7 @@ class RTCBrowserType2 {
         }
 
         return {
-            browser: this.RTCBrowserType2.RTC_BROWSER_ELECTRON,
+            browser: RTCBrowserType2.RTC_BROWSER_ELECTRON,
             version
         };
     }
@@ -153,7 +153,7 @@ class RTCBrowserType2 {
         }
 
         return {
-            browser: this.RTCBrowserType2.RTC_BROWSER_NWJS,
+            browser: RTCBrowserType2.RTC_BROWSER_NWJS,
             version
         };
     }
