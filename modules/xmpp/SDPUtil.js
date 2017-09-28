@@ -246,10 +246,14 @@ const SDPUtil = {
 
         for (let i = 0; i < lines.length; i++) {
             if (lines[i].substring(0, 7) === 'a=ssrc:') {
-                const idx = lines[i].indexOf(' ');
+                // FIXME: Use regex to smartly find the ssrc.
+                const ssrc = lines[i].split('a=ssrc:')[1].split(' ')[0];
 
-                data[lines[i].substr(idx + 1).split(':', 2)[0]]
-                    = lines[i].substr(idx + 1).split(':', 2)[1];
+                if (!data[ssrc]) {
+                    data[ssrc] = [];
+                }
+
+                data[ssrc].push(lines[i]);
             }
         }
 
